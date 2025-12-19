@@ -1,0 +1,425 @@
+---
+title: "Do lay theories of altruism apply equally to all actors?"
+author: "Ashley Harrell and Margaret Traeger"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(here)
+credit <- read_csv(here("data", "credit-motives.csv"))
+```
+
+## Raw data cleaning, some demos and variable creation
+
+How many participants completed the study?
+
+```{r}
+credit %>% 
+  filter(Finished==TRUE) %>% 
+  tally()
+```
+
+Carlson and Zaki dropped participants who read each vignette in 1.5 sec or less. Unfortunately, I did not put a time tracker on each individual vignette screen. But, we can see how much time people spent on the vignettes total, and average this per vignette. First we take the duration in secs they spent on the entire study (was in the fourth column; I relabelled as `duration`) and subtract the time they spent on the consent form, which does have a time tracker on it (10th column, I relabelled as `start`). This leaves the time they spent on everything *but* the consent screen. Then we get the z-scores of those and finally call them `outlier` if they are more than 3 z-scores different.
+
+```{r}
+credit %>% 
+  filter(Finished == TRUE) %>% # drop did-not-finish people
+  rename(duration = 4, start = 10) %>% # the entire time in secs they spent on the study is column 4 and the time after which they clicked to consent is column 10, these have some long name that i'm changing here
+  mutate(vignette_time = as.numeric(duration) - as.numeric(start), #this is the time in secs they spent on everything in the study BUT the consent
+  vignette_time_z = (vignette_time - mean(vignette_time, na.rm = TRUE)) / 
+                      sd(vignette_time, na.rm = TRUE), 
+    outlier = abs(vignette_time_z) > 3
+  ) %>% 
+  select(duration, start, vignette_time, vignette_time_z, outlier) %>% 
+  # filter(outlier) %>%
+  summarise(min_time_per_vignette = min(vignette_time)/9) # all outliers on time were too LONG, not too short, if filtering by outlier status. When we don't filter on outlier, the min avg time per vignette is about 9 sec. Note that i'm averaging by 9 rather than 8 because there was a final screen of demographics (gender, race, and an optional open-end item for comments) that I'm counting as the 9th task (the other 8 were the vignettes)
+  
+```
+
+We need to combine the DV items, which are currently in diff columns depending on condition, into one set of columns called `v1_person`...`v8_others`. For clarity, I also renamed the variables for the participant's own demographics so we don't confuse them with the actor's demographics. Here I also remove the text from the likert scale items, and dropped all other extraneous variables we don't need, into a clean dataset `credit_clean`:
+
+```{r}
+credit_clean <- credit %>% 
+  filter(Finished==TRUE) %>% # drop DNFs
+  mutate(v1_person = coalesce(v1_help_alt_motive_1, v1_help_alt_1, v1_neutral_alt_1),
+         v2_person = coalesce(v2_help_alt_motive_1, v2_help_alt_1, v2_neutral_alt_1),
+         v3_person = coalesce(v3_help_alt_motive_1, v3_help_alt_1, v3_neutral_alt_1),
+         v4_person = coalesce(v4_help_alt_motive_1, v4_help_alt_1, v4_neutral_alt_1),
+         v5_person = coalesce(v5_help_alt_motive_1, v5_help_alt_1, v5_neutral_alt_1),
+         v6_person = coalesce(v6_help_alt_motive_1, v6_help_alt_1, v6_neutral_alt_1),
+         v7_person = coalesce(v7_help_alt_motive_1, v7_help_alt_1, v7_neutral_alt_1),
+         v8_person = coalesce(v8_help_alt_motive_1, v8_help_alt_1, v8_neutral_alt_1),
+         v1_action = coalesce(v1_help_alt_motive_2, v1_help_alt_2, v1_neutral_alt_2),
+         v2_action = coalesce(v2_help_alt_motive_2, v2_help_alt_2, v2_neutral_alt_2),
+         v3_action = coalesce(v3_help_alt_motive_2, v3_help_alt_2, v3_neutral_alt_2),
+         v4_action = coalesce(v4_help_alt_motive_2, v4_help_alt_2, v4_neutral_alt_2),
+         v5_action = coalesce(v5_help_alt_motive_2, v5_help_alt_2, v5_neutral_alt_2),
+         v6_action = coalesce(v6_help_alt_motive_2, v6_help_alt_2, v6_neutral_alt_2),
+         v7_action = coalesce(v7_help_alt_motive_2, v7_help_alt_2, v7_neutral_alt_2),
+         v8_action = coalesce(v8_help_alt_motive_2, v8_help_alt_2, v8_neutral_alt_2),
+         v1_charmotive = coalesce(v1_help_alt_motive_3, v1_help_alt_3, v1_neutral_alt_3),
+         v2_charmotive = coalesce(v2_help_alt_motive_3, v2_help_alt_3, v2_neutral_alt_3),
+         v3_charmotive = coalesce(v3_help_alt_motive_3, v3_help_alt_3, v3_neutral_alt_3),
+         v4_charmotive = coalesce(v4_help_alt_motive_3, v4_help_alt_3, v4_neutral_alt_3),
+         v5_charmotive = coalesce(v5_help_alt_motive_3, v5_help_alt_3, v5_neutral_alt_3),
+         v6_charmotive = coalesce(v6_help_alt_motive_3, v6_help_alt_3, v6_neutral_alt_3),
+         v7_charmotive = coalesce(v7_help_alt_motive_3, v7_help_alt_3, v7_neutral_alt_3),
+         v8_charmotive = coalesce(v8_help_alt_motive_3, v8_help_alt_3, v8_neutral_alt_3),
+         v1_others = coalesce(v1_help_alt_motive_4, v1_help_alt_4, v1_neutral_alt_4),
+         v2_others = coalesce(v2_help_alt_motive_4, v2_help_alt_4, v2_neutral_alt_4),
+         v3_others = coalesce(v3_help_alt_motive_4, v3_help_alt_4, v3_neutral_alt_4),
+         v4_others = coalesce(v4_help_alt_motive_4, v4_help_alt_4, v4_neutral_alt_4),
+         v5_others = coalesce(v5_help_alt_motive_4, v5_help_alt_4, v5_neutral_alt_4),
+         v6_others = coalesce(v6_help_alt_motive_4, v6_help_alt_4, v6_neutral_alt_4),
+         v7_others = coalesce(v7_help_alt_motive_4, v7_help_alt_4, v7_neutral_alt_4),
+         v8_others = coalesce(v8_help_alt_motive_4, v8_help_alt_4, v8_neutral_alt_4),
+         ) %>% 
+  rename(participant_gender = gender, participant_race = race, participant_hispanic = hispanic) %>% 
+  mutate(
+    across(
+      c(v1_person:v8_others), 
+      ~ str_remove_all(.x, "[ (Extremely altruistic)| (Extremely selfish)]") 
+      ) ) %>% 
+  mutate(
+    across(c(v1_person:v8_others), as.numeric)
+  ) %>% 
+      select(ResponseId, participant_gender, participant_hispanic, participant_race, v1_gender, v1_race, v2_gender, v2_race, v3_gender, v3_race, v4_gender, v4_race, v5_gender, v5_race, v6_gender, v6_race, v7_gender, v7_race, v8_gender, v8_race, help, motives, v1_person:v8_others, v1_motive:v8_motive
+  )
+```
+
+Gender of our participants:
+
+```{r}
+credit_clean %>% 
+  group_by(participant_gender) %>% 
+  tally() %>% 
+  mutate(pct = n/sum(n)*100)
+```
+
+Race of our participants:
+
+```{r}
+credit_clean %>% 
+  group_by(participant_race) %>% 
+  tally() %>% 
+  mutate(pct = (n/sum(n)*100))
+```
+
+Hispanic/Latino participants:
+
+```{r}
+credit_clean %>% 
+  group_by(participant_hispanic) %>% 
+  tally() %>% 
+  mutate(pct = (n/sum(n)*100))
+```
+
+Now we'll make the dataset long for MLMs. We take the `v1_gender`, `v1_race`...etc variables and convert them to new variables `actor_female` and `actor_race` for each vignette. I also created some updated condition variables that are mutually exclusive (compared to the dummy coded version) in the data where help == 1 refers to both the help and help-with-motives condition). 
+
+```{r}
+credit_long <- credit_clean %>%
+  pivot_longer(
+    cols = starts_with("v"),
+    names_to = c("vignette", ".value"),
+    names_pattern = "v(\\d+)_(.*)"
+  ) %>%
+  mutate(vignette = as.integer(vignette),
+         actor_female = ifelse(gender=="woman", 1, 0),
+         actor_black = ifelse(race == "Black", 1, 0),
+         actor_motive_material = ifelse(motives == 1 & motive == "M", 1, 
+                                 ifelse(motives == 1 & motive == "S", 0,
+                                        NA)), # turn the motive to NA (it was randomly assigned for all Ps at the outset regardless of their condition) if they weren't in the motives condition. recode the motive into a 1/0 value if they were
+         condition_neutral = ifelse(help == 0 & motives == 0, 1, 0),
+         condition_help = ifelse(help == 1 & motives == 0, 1, 0),
+         condition_motive_help = ifelse(help == 1 & motives == 1, 1, 0))
+
+```
+
+Cronbach alpha on the four items Ps answered after each vignette, separated out for each vignette so that we aren't getting a high alpha due to high within-rater reliability. We compare the alpha for the three-item (just the three items from CZ) and four-item (the fourth we added) scales. Both look good and very similar so we'll retain the four-item scale. I also created average values across the vignettes to report that too.
+
+```{r}
+
+items4 <- c("person", "charmotive", "action", "others") # these are the four items we asked
+items3 <- c("person", "charmotive", "action") # these are the three items from the original CZ piece, with "others" being the one we added. According to the pre-reg, we'll use this if the four items are not acceptably reliable while the 3 are. 
+
+alpha_by_vignette <- credit_long %>%
+  group_by(vignette) %>% # group by vignette - we'll look at each separately
+  summarise(
+    n = n(), #n per vignette, should be 1501
+    alpha_4 = psych::alpha(across(all_of(items4)))$total$raw_alpha,
+    alpha_3 = psych::alpha(across(all_of(items3)))$total$raw_alpha,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    overall_mean_4 = mean(alpha_4),
+    overall_mean_3 = mean(alpha_3)
+  )
+
+```
+
+Because the items are very reliable, I'm averaging them into a new DV called `mean_alt`. Before I do that I also rescale the items so the midpoint of the scale is 0 (-4 to 4) rather than 5 (1-9). Creating another condition variable here too.
+
+```{r}
+credit_long <- credit_long %>% 
+  mutate(
+    person_rec = person - 5,  #recode these from 1-9 scale to -4 to 4 scale
+    charmotive_rec = charmotive - 5,
+    action_rec = action - 5,
+    others_rec = others - 5,
+    mean_alt = (person_rec + charmotive_rec + action_rec + others_rec)/4, #average them
+    mean_alt_3 = (person_rec + charmotive_rec + action_rec)/3, # this version matches CZ exactly, that is, dropping the fourth item we added. we'll use this to confirm that results are similar either way
+    participant_black = ifelse(str_detect(participant_race, "Black"), 1, 0), # this will match with "actor_black" as a potential control term for participant race/ethncity. however, another option is below...
+    participant_black_only = ifelse(participant_race == "Black/African American", 1, 0), # this version only selects participants who indicated Black AND NO OTHER RACE as a stricter form. for example, about 20 people selected both Black and White. So we could use this as a robustness check. 
+    participant_female = ifelse(participant_gender == "Woman", 1, 0), #likewise for gender
+condition = ifelse(condition_help==1, "2_Help with no motive info", 
+                       ifelse(condition_motive_help==1, "3_Help with self motives",
+                              "1_Neutral")),
+condition2 = ifelse(motives == 1 & motive == "M", # in case we want to split out by motives
+                    "Help with material motives",
+             ifelse(motives == 1 & motive == "S",
+                    "Help with social motives", condition))
+  ) 
+
+```
+
+
+
+
+
+
+
+
+
+## Analyses
+
+```{r}
+library(afex)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+```
+
+Here are ratings for helping behaviors vs neutral behaviors, and the N of participants who read about helping vs. neutral behaviors. At this point, we're collapsing across those who got information about motives vs did not. Generally, ratings of altruism are higher for those who help than those who don't...
+
+```{r}
+credit_long %>% 
+  group_by(help) %>% 
+  summarise(mean = mean(mean_alt, na.rm = TRUE), 
+            sd = sd(mean_alt, na.rm = TRUE),
+            n = n_distinct(ResponseId))
+```
+
+However, when information about self-oriented motives is available, people who help with *no* motives known are clearly rated as more altruistic than those who are doing a neutral activity, but not when there is information about self-interested motives. Those with self-interested motives for helping are perceived as *less* altruistic than those doing a neutral activity.
+
+```{r}
+credit_long %>% 
+  group_by(condition) %>% 
+  summarise(
+    mean = mean(mean_alt, na.rm = TRUE),
+    sd = sd(mean_alt, na.rm = TRUE),
+      n = n_distinct(ResponseId)
+  )
+```
+
+CZ did an ANOVA, so let's start with that:
+
+```{r}
+anova_model <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_long,
+  between = "condition", # varied across participants
+  within = c("actor_female", "actor_black"), #varied within participants
+  type = 3
+)
+
+nice(anova_model, es = "pes") # using partial eta squared since we have many interactions. 
+```
+
+Here are the simple effects:
+
+```{r}
+emmeans(anova_model, ~ actor_female * actor_black * condition)
+```
+
+Let's plot them, starting with collapsed across actor race and gender:
+
+```{r}
+
+new_labels <- c("1_Neutral" = "No help — neutral act"
+                , "2_Help with no motive info" = "Help — no motive"
+                # , "Help with material motives" = "Help — material motive", 
+                , "3_Help with self motives" = "Help — self-interest motive"
+                # "Help with social motives" = "Help — social motive"
+                )
+
+emms_cond <- emmeans(anova_model, ~ condition) # here we get just simple effects for condition for now, ignoring social category of the actor
+
+emm_df <- as.data.frame(emms_cond) # and we turn it into a df
+
+ggplot(emm_df, aes(x = reorder(condition, emmean), y = emmean)) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL),
+                width = 0.1, linewidth = 0.9) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
+  scale_y_continuous(limits = c(-1, 3)) +             
+  scale_x_discrete(labels = new_labels) +
+  ggthemes::theme_clean(base_size = 14) +
+  theme(
+    axis.title.x = element_text(size = 16),
+    axis.text.x  = element_text(size = 14),
+    axis.text.y  = element_text(size = 16),
+    axis.title.y = element_blank(),
+    plot.background = element_rect(color = NA, fill = NA),
+    panel.border = element_blank(),
+    legend.position = "none"
+  ) +
+  labs(y = "Perceived altruism", title = "") +
+  coord_flip() + 
+  theme(panel.border = element_blank())
+```
+
+Now let's plot them but looking at how race and gender differ from each other:
+
+```{r}
+
+# Here are the simple effects again, but this time, with the race and gender ints
+emms_all <- emmeans(anova_model, ~ actor_female * actor_black * condition) 
+
+emm_df <- as.data.frame(emms_all) %>%
+  mutate(
+    actor_female = ifelse(actor_female == "X1", "Female", "Male"),
+    actor_black  = ifelse(actor_black  == "X1", "Black", "White"),
+    actor_label  = paste(actor_black, actor_female),
+    actor_label  = factor(actor_label,
+                          levels = c("White Male","White Female","Black Male","Black Female")),
+    condition = as.factor(condition)
+  )
+
+# The ref category will be White man
+ref_df <- emm_df %>%
+  filter(actor_label == "White Male") %>%
+  select(condition, ref_mean = emmean, ref_se = SE)
+
+# Compute diff from White men and approximate SE of difference
+diffs <- emm_df %>%
+  left_join(ref_df, by = "condition") %>%
+  mutate(
+    diff = emmean - ref_mean,
+    se_diff = sqrt(SE^2 + ref_se^2), # approximate SE of difference
+    lower_diff = diff - 1.96 * se_diff,
+    upper_diff = diff + 1.96 * se_diff
+  ) %>%
+  filter(actor_label != "White Male") # to plot the comparisons only
+
+plot_diffs <- ggplot(
+  diffs,
+  aes(x = diff, y = reorder(condition, emmean), color = actor_label)
+) +
+  geom_errorbarh(aes(xmin = lower_diff, xmax = upper_diff),
+                 height = 0.18, linewidth = 0.9,
+                 position = position_dodge(width = 0.6)) +
+  geom_point(size = 3, position = position_dodge(width = 0.6)) +
+  geom_vline(xintercept = 0, linewidth = 0.3, linetype = "dashed") +
+  scale_x_continuous(limits = c(-1, 1), breaks = c(-1, 0, 1)) +
+  scale_y_discrete(labels = new_labels) +  
+  ggthemes::theme_clean(base_size = 14) +
+  theme(
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(size = 16),
+    axis.text.x  = element_text(size = 14),
+    axis.text.y  = element_text(size = 16),
+    legend.title = element_blank(),
+    legend.position = "right",
+    plot.background = element_rect(color = NA, fill = NA),
+    panel.border = element_blank()
+  ) +
+  labs(
+    x = "Perceived altruism (difference from White men)",
+    title = ""
+  )
+
+print(plot_diffs)
+
+```
+
+
+Now let's do the MLM:
+
+```{r}
+mlm_1 <- lmer(mean_alt ~ 
+                       actor_female*actor_black*condition +
+                       participant_black*participant_female + 
+                       as.factor(vignette) +
+                       (1|ResponseId), data=credit_long, REML=FALSE
+)
+summary(mlm_1)
+
+```
+
+Getting bootstrapped CIs for these:
+
+```{r}
+broom.mixed::tidy(mlm_1)
+set.seed(20251212)
+confint(mlm_1, method = "boot", nsim = 1000, level = 0.95)
+```
+
+
+
+Finally, let's split these out by motive, using an alt condition variable I created above, which looks at material vs. social separately:
+
+```{r}
+mlm_2 <- lmer(mean_alt ~ 
+                       actor_female*actor_black*condition2 +
+                       participant_black*participant_female + 
+                       as.factor(vignette) +
+                       (1|ResponseId), data=credit_long, REML=FALSE
+)
+summary(mlm_2)
+```
+
+
+
+
+
+
+
+## Supplementary stuff
+
+A quick check on name validation using the `gender` package: (note that all vignettes also contained the actor's pronouns at least once if not several times)
+
+```{r}
+names <- c("Susan","Scott","Tanisha","Terrell","Amy","Seth","Shanice","DeAndre",
+            "Katie","Todd","Ebony","Jamal","Laurie","Brad","Denisha","Tyrone",
+            "Carrie","Luke","Keyana","Keyshawn","Kristen","Hunter","Tyra",
+            "Jayvon","Hilary","Dustin","Keisha","Lamar","Joan","Cody","Kenya","Darnell")
+
+gender_data <- gender::gender(names, method = "ssa")  
+gender_data %>% select(name, gender, proportion_female, proportion_male) %>% 
+  print(n=Inf)
+```
+
+Including partiicpant demos in the ANOVA:
+
+```{r}
+anova_model_demos <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_long,
+  between = c("condition", "participant_black", "participant_female"), # varied across participants
+  within = c("actor_female", "actor_black"), # varied within participants
+  type = 3
+)
+
+nice(anova_model_demos, es = "pes") # using partial eta squared since we have many interactions. 
+```
+
+Here are the simple effects for those:
+```{r}
+emmeans(anova_model_demos, ~ actor_female * actor_black * condition * participant_female * participant_black)
+```
+
+
