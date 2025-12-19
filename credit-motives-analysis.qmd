@@ -259,7 +259,7 @@ emms_cond <- emmeans(anova_model, ~ condition) # here we get just simple effects
 
 emm_df <- as.data.frame(emms_cond) # and we turn it into a df
 
-ggplot(emm_df, aes(x = reorder(condition, emmean), y = emmean)) +
+fig1 <- ggplot(emm_df, aes(x = reorder(condition, emmean), y = emmean)) +
   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL),
                 width = 0.1, linewidth = 0.9) +
   geom_point(size = 3) +
@@ -279,6 +279,8 @@ ggplot(emm_df, aes(x = reorder(condition, emmean), y = emmean)) +
   labs(y = "Perceived altruism", title = "") +
   coord_flip() + 
   theme(panel.border = element_blank())
+
+# ggsave("fig.pdf", p, width = 12, height = 4, dpi = 300)
 ```
 
 Now let's plot them but looking at how race and gender differ from each other:
@@ -379,6 +381,14 @@ mlm_2 <- lmer(mean_alt ~
                        (1|ResponseId), data=credit_long, REML=FALSE
 )
 summary(mlm_2)
+```
+
+Getting bootstrapped CIs for this model too:
+
+```{r}
+broom.mixed::tidy(mlm_2)
+set.seed(20251219)
+confint(mlm_2, method = "boot", nsim = 1000, level = 0.95)
 ```
 
 
