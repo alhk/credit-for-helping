@@ -280,7 +280,10 @@ fig1 <- ggplot(emm_df, aes(x = reorder(condition, emmean), y = emmean)) +
   coord_flip() + 
   theme(panel.border = element_blank())
 
-# ggsave("fig.pdf", p, width = 12, height = 4, dpi = 300)
+print(fig1)
+ggsave("fig1.pdf", fig1, width = 7, height = 5, bg = "white")
+ggsave("fig1.png", fig1, width = 7, height = 5, bg = "white")
+
 ```
 
 Now let's plot them but looking at how race and gender differ from each other:
@@ -316,7 +319,7 @@ diffs <- emm_df %>%
   ) %>%
   filter(actor_label != "White Male") # to plot the comparisons only
 
-plot_diffs <- ggplot(
+fig2 <- ggplot(
   diffs,
   aes(x = diff, y = reorder(condition, emmean), color = actor_label)
 ) +
@@ -325,7 +328,7 @@ plot_diffs <- ggplot(
                  position = position_dodge(width = 0.6)) +
   geom_point(size = 3, position = position_dodge(width = 0.6)) +
   geom_vline(xintercept = 0, linewidth = 0.3, linetype = "dashed") +
-  scale_x_continuous(limits = c(-1, 1), breaks = c(-1, 0, 1)) +
+  scale_x_continuous(limits = c(-.5, .5), breaks = c(-.5, 0, .5)) +
   scale_y_discrete(labels = new_labels) +  
   ggthemes::theme_clean(base_size = 14) +
   theme(
@@ -343,7 +346,10 @@ plot_diffs <- ggplot(
     title = ""
   )
 
-print(plot_diffs)
+
+print(fig2)
+ggsave("fig2.pdf", fig2, width = 7, height = 5, bg = "white")
+ggsave("fig2.png", fig2, width = 7, height = 5, bg = "white")
 
 ```
 
