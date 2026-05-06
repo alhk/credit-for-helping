@@ -21,15 +21,7 @@ credit %>%
   tally()
 ```
 
-Carlson and Zaki dropped participants who read each vignette in 1.5 sec or less. 
-Unfortunately, I did not put a time tracker on each individual vignette screen. 
-But, we can see how much time people spent on the vignettes total, and average 
-this per vignette. First we take the duration in secs they spent on the entire 
-study (was in the fourth column; I relabelled as `duration`) and subtract the 
-time they spent on the consent form, which does have a time tracker on it (10th 
-column, I relabelled as `start`). This leaves the time they spent on everything 
-*but* the consent screen. Then we get the z-scores of those and finally call 
-them `outlier` if they are more than 3 z-scores different.
+Carlson and Zaki dropped participants who read each vignette in 1.5 sec or less. Unfortunately, I did not put a time tracker on each individual vignette screen. But, we can see how much time people spent on the vignettes total, and average this per vignette. First we take the duration in secs they spent on the entire study (was in the fourth column; I relabelled as `duration`) and subtract the time they spent on the consent form, which does have a time tracker on it (10th column, I relabelled as `start`). This leaves the time they spent on everything *but* the consent screen. Then we get the z-scores of those and finally call them `outlier` if they are more than 3 z-scores different.
 
 ```{r}
 credit %>% 
@@ -97,19 +89,16 @@ credit_clean <- credit %>%
   )
 ```
 
-Here we drop the folks who wrote that the names were 
-suspicious in the open-end. Participants were not required to answer this 
-question; many left it blank, and the question was vague ("do you have any
-thoughts or comments about the study? You may leave this blank if none.")
-But, it's a start, and we do this better in Study 2. 
+Here we drop the folks who wrote that the names were suspicious in the open-end. Participants were not required to answer this question; many left it blank, and the question was vague ("do you have any thoughts or comments about the study? You may leave this blank if none.") But, it's a start, and we do this better in Study 2.
 
 ```{r}
-
 credit_clean %>%
   filter(open_end_flag == 1) %>%
   tally() # 11 people said something about the names
 
-credit_clean <- credit_clean%>% 
+credit_no_drop <- credit_clean # save an old version
+
+credit_clean <- credit_clean %>% 
   filter(is.na(open_end_flag)
 )
 ```
@@ -120,7 +109,6 @@ How many Ps do we have now?
 credit_clean %>% 
   tally()
 ```
-
 
 Gender of our participants:
 
@@ -149,11 +137,7 @@ credit_clean %>%
   mutate(pct = (n/sum(n)*100))
 ```
 
-Now we'll make the dataset long. We take the `v1_gender`, `v1_race`...etc 
-variables and convert them to new variables `actor_female` and `actor_race` 
-for each vignette. I also created some updated condition variables that are 
-mutually exclusive (compared to the dummy coded version) in the data where help 
-== 1 refers to both the help and help-with-motives condition).
+Now we'll make the dataset long. We take the `v1_gender`, `v1_race`...etc variables and convert them to new variables `actor_female` and `actor_race` for each vignette. I also created some updated condition variables that are mutually exclusive (compared to the dummy coded version) in the data where help == 1 refers to both the help and help-with-motives condition).
 
 ```{r}
 credit_long <- credit_clean %>%
@@ -174,15 +158,9 @@ credit_long <- credit_clean %>%
 
 ```
 
-Cronbach alpha on the four items Ps answered after each vignette, separated out 
-for each vignette so that we aren't getting a high alpha due to high 
-within-rater reliability. We compare the alpha for the three-item (just the 
-three items from CZ) and four-item (the fourth we added) scales. Both look good 
-and very similar so we'll retain the four-item scale. I also created average 
-values across the vignettes to report that too.
+Cronbach alpha on the four items Ps answered after each vignette, separated out for each vignette so that we aren't getting a high alpha due to high within-rater reliability. We compare the alpha for the three-item (just the three items from CZ) and four-item (the fourth we added) scales. Both look good and very similar so we'll retain the four-item scale. I also created average values across the vignettes to report that too.
 
 ```{r}
-
 items4 <- c("person", "charmotive", "action", "others") # these are the four items we asked
 items3 <- c("person", "charmotive", "action") # these are the three items from the original CZ piece, with "others" being the one we added. According to the pre-reg, we'll use this if the four items are not acceptably reliable while the 3 are. 
 
@@ -202,10 +180,7 @@ alpha_by_vignette <- credit_long %>%
 alpha_by_vignette
 ```
 
-Because the items are very reliable, I'm averaging them into a new DV called 
-`mean_alt`. Before I do that I also rescale the items so the midpoint of the 
-scale is 0 (-4 to 4) rather than 5 (1-9). Creating another condition variable 
-here too.
+Because the items are very reliable, I'm averaging them into a new DV called `mean_alt`. Before I do that I also rescale the items so the midpoint of the scale is 0 (-4 to 4) rather than 5 (1-9). Creating another condition variable here too.
 
 ```{r}
 credit_long <- credit_long %>% 
@@ -285,7 +260,6 @@ emmeans(anova_model, ~ actor_female * actor_black * condition)
 Let's plot them, starting with collapsed across actor race and gender:
 
 ```{r}
-
 new_labels <- c("1_Neutral" = "No help — neutral act"
                 , "2_Help with no motive info" = "Help — no motive"
                 # , "Help with material motives" = "Help — material motive", 
@@ -390,10 +364,9 @@ ggsave("old_fig2.png", old_fig2, width = 7, height = 5, bg = "white")
 
 ```
 
-
 ## New analysis for R&R
 
-First, we want to update Figure 2 to show the data as a whole, but then also panels for just White participants, just men, and just women. This could visualize how the results may differ based on participant characteristics. 
+First, we want to update Figure 2 to show the data as a whole, but then also panels for just White participants, just men, and just women. This could visualize how the results may differ based on participant characteristics.
 
 ```{r}
 make_panel_df <- function(dat, panel_label) {
@@ -526,8 +499,7 @@ ggsave("fig2.pdf", fig2, width = 10, height = 7, bg = "white")
 ggsave("fig2.png", fig2, width = 10, height = 7, bg = "white")
 ```
 
-
-Participants may have understood what the study was about due to the within-subjects nature (i.e., seeing that the names in the vignettes conveyed different races and genders). One thing we could do is analyze just the FIRST vignette they did, before they saw that names were being manipulated. First, we need to read the vignette they got first:
+Participants may have understood what the study was about due to the within-subjects nature (i.e., seeing that the names in the vignettes conveyed different races and genders), even if they did not say so in the (optional) open-end item. One thing we could do is analyze just the FIRST vignette they did, before they saw that names were being manipulated. First, we need to read the vignette they got first:
 
 ```{r}
 credit_long %>% mutate(
@@ -566,7 +538,6 @@ emm <- emmeans(anova_model_first, ~ actor_female * actor_black * condition)
 emm
 ```
 
-
 ## Supplementary stuff
 
 A quick check on name validation using the `gender` package: (note that all vignettes also contained the actor's pronouns at least once if not several times)
@@ -582,12 +553,12 @@ gender_data %>% select(name, gender, proportion_female, proportion_male) %>%
   print(n=Inf)
 ```
 
-MLMs instead of ANOVA:
+MLMs instead of ANOVA. Also controls for what vignette they did, and their own gender and race. None of the interactions are significant, as in the previous model.
 
 ```{r}
 mlm_1 <- lmer(mean_alt ~ 
                        actor_female*actor_black*condition + 
-                       participant_white*participant_female + 
+                       participant_white_only*participant_female + 
                        as.factor(vignette) +
                        (1|ResponseId), data=credit_long, REML=FALSE
 )
@@ -596,29 +567,112 @@ summary(mlm_1)
 
 Getting bootstrapped CIs for these:
 
-```{r}
-broom.mixed::tidy(mlm_1)
-set.seed(20251212)
-confint(mlm_1, method = "boot", nsim = 1000, level = 0.95)
-```
+# ```{r}
+# broom.mixed::tidy(mlm_1)
+# set.seed(20251212)
+# confint(mlm_1, method = "boot", nsim = 1000, level = 0.95)
+# ```
 
 Let's split these out by motive, using an alt condition variable I created above, which looks at material vs. social separately:
 
-```{r}
-mlm_2 <- lmer(mean_alt ~ 
-                       actor_female*actor_black*condition2 +
-                       participant_white*participant_female + 
-                       as.factor(vignette) +
-                       (1|ResponseId), data=credit_long, REML=FALSE
-)
-summary(mlm_2)
-```
+# ```{r}
+# mlm_2 <- lmer(mean_alt ~ 
+#                        actor_female*actor_black*condition2 +
+#                        participant_white_only*participant_female + 
+#                        as.factor(vignette) +
+#                        (1|ResponseId), data=credit_long, REML=FALSE
+# )
+# summary(mlm_2)
+# ```
 
 Getting bootstrapped CIs for this model too:
 
+# ```{r}
+# broom.mixed::tidy(mlm_2)
+# set.seed(20251219)
+# confint(mlm_2, method = "boot", nsim = 1000, level = 0.95)
+# ```
+
+repeat analyses with people not dropped. First, need to make a long version:
+
 ```{r}
-broom.mixed::tidy(mlm_2)
-set.seed(20251219)
-confint(mlm_2, method = "boot", nsim = 1000, level = 0.95)
+
+credit_long_no_drop <- credit_no_drop %>%
+  pivot_longer(
+    cols = starts_with("v"),
+    names_to = c("vignette", ".value"),
+    names_pattern = "v(\\d+)_(.*)"
+  ) %>%
+  mutate(vignette = as.integer(vignette),
+         actor_female = ifelse(gender=="woman", 1, 0),
+         actor_black = ifelse(race == "Black", 1, 0),
+         actor_motive_material = ifelse(motives == 1 & motive == "M", 1, 
+                                 ifelse(motives == 1 & motive == "S", 0,
+                                        NA)), # turn the motive to NA (it was randomly assigned for all Ps at the outset regardless of their condition) if they weren't in the motives condition. recode the motive into a 1/0 value if they were
+         condition_neutral = ifelse(help == 0 & motives == 0, 1, 0),
+         condition_help = ifelse(help == 1 & motives == 0, 1, 0),
+         condition_motive_help = ifelse(help == 1 & motives == 1, 1, 0))
+
+credit_long_no_drop <- credit_long_no_drop %>% 
+  mutate(
+    person_rec = person - 5,  #recode these from 1-9 scale to -4 to 4 scale
+    charmotive_rec = charmotive - 5,
+    action_rec = action - 5,
+    others_rec = others - 5,
+    mean_alt = (person_rec + charmotive_rec + action_rec + others_rec)/4, #average them
+    mean_alt_3 = (person_rec + charmotive_rec + action_rec)/3, # this version matches CZ exactly, that is, dropping the fourth item we added. we'll use this to confirm that results are similar either way
+    participant_white = ifelse(str_detect(participant_race, "White"), 1, 0), 
+    participant_white_only = ifelse(participant_race == "White/Caucasian", 1, 0), # this version only selects participants who indicated White AND NO OTHER RACE as a stricter form
+    participant_female = ifelse(participant_gender == "Woman", 1, 0), #likewise for gender
+condition = ifelse(condition_help==1, "2_Help with no motive info", 
+                       ifelse(condition_motive_help==1, "3_Help with self motives",
+                              "1_Neutral")),
+condition2 = ifelse(motives == 1 & motive == "M", # in case we want to split out by motives
+                    "Help with material motives",
+             ifelse(motives == 1 & motive == "S",
+                    "Help with social motives", condition))
+)
 ```
 
+Then, re-do our anova but with all participants included:
+
+```{r}
+
+
+anova_model_no_drop <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_long_no_drop,
+  between = "condition", # varied across participants
+  within = c("actor_female", "actor_black"), #varied within participants
+  type = 3
+)
+
+nice(anova_model_no_drop, es = "pes") # using partial eta squared since we have many interactions. 
+```
+
+We should also repeat our anova but with participant categories:
+
+```{r}
+
+anova_model_demos <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_long,
+  between = c("condition", "participant_white", "participant_female"), # varied across participants
+  within = c("actor_female", "actor_black"), #varied within participants
+  type = 3
+)
+
+nice(anova_model_demos, es = "pes") # using partial eta squared since we have many interactions. 
+
+```
+
+There is an interaction between participant demos (both White and female) and female actors (and condition).Probing that: basically, two diffs in the difference between neutral vs self interested actors, rather than penalties or credits.
+
+```{r}
+emm <- emmeans(anova_model_demos, 
+        ~ condition | participant_white * participant_female * actor_female)
+
+pairs(emm)
+```

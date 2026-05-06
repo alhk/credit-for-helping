@@ -1,0 +1,470 @@
+---
+title: "Study 2 - Do lay theories of altruism apply equally to all actors?"
+author: "Ashley Harrell and Margaret Traeger"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(here)
+credit_2 <- read_csv(here("data", "credit-motives-2-coded.csv"))
+```
+
+## Raw data cleaning, some demos and variable creation
+
+How many participants completed the study? Note that I already removed a participant who in Prolific was flagged as failing authenticity items.
+
+```{r}
+credit_2 %>% 
+  filter(Finished==TRUE) %>% 
+  tally()
+```
+
+We need to combine the DV items, which are currently in diff columns depending on condition AND which one vignette they did, into one set of columns called `person`...`others`. For clarity, I also renamed the variables for the participant's own demographics so we don't confuse them with the actor's demographics. Here I also remove the text from the likert scale items, and dropped all other extraneous variables we don't need, into a clean dataset `credit_clean_2`:
+
+```{r}
+credit_2 <- credit_2 %>% 
+  filter(Finished==TRUE) %>% # drop DNFs
+  mutate(person = coalesce(v1_help_alt_motive_1, v1_help_alt_1, v1_neutral_alt_1, v2_help_alt_motive_1, v2_help_alt_1, v2_neutral_alt_1, v3_help_alt_motive_1, v3_help_alt_1, v3_neutral_alt_1, v4_help_alt_motive_1, v4_help_alt_1, v4_neutral_alt_1, v5_help_alt_motive_1, v5_help_alt_1, v5_neutral_alt_1, v6_help_alt_motive_1, v6_help_alt_1, v6_neutral_alt_1, v7_help_alt_motive_1, v7_help_alt_1, v7_neutral_alt_1, v8_help_alt_motive_1, v8_help_alt_1, v8_neutral_alt_1),
+         action = coalesce(v1_help_alt_motive_2, v1_help_alt_2, v1_neutral_alt_2, v2_help_alt_motive_2, v2_help_alt_2, v2_neutral_alt_2, v3_help_alt_motive_2, v3_help_alt_2, v3_neutral_alt_2, v4_help_alt_motive_2, v4_help_alt_2, v4_neutral_alt_2, v5_help_alt_motive_2, v5_help_alt_2, v5_neutral_alt_2, v6_help_alt_motive_2, v6_help_alt_2, v6_neutral_alt_2, v7_help_alt_motive_2, v7_help_alt_2, v7_neutral_alt_2, v8_help_alt_motive_2, v8_help_alt_2, v8_neutral_alt_2),
+         charmotive = coalesce(v1_help_alt_motive_3, v1_help_alt_3, v1_neutral_alt_3, v2_help_alt_motive_3, v2_help_alt_3, v2_neutral_alt_3, v3_help_alt_motive_3, v3_help_alt_3, v3_neutral_alt_3, v4_help_alt_motive_3, v4_help_alt_3, v4_neutral_alt_3, v5_help_alt_motive_3, v5_help_alt_3, v5_neutral_alt_3, v6_help_alt_motive_3, v6_help_alt_3, v6_neutral_alt_3, v7_help_alt_motive_3, v7_help_alt_3, v7_neutral_alt_3, v8_help_alt_motive_3, v8_help_alt_3, v8_neutral_alt_3),
+         others = coalesce(v1_help_alt_motive_4, v1_help_alt_4, v1_neutral_alt_4, v2_help_alt_motive_4, v2_help_alt_4, v2_neutral_alt_4, v3_help_alt_motive_4, v3_help_alt_4, v3_neutral_alt_4, v4_help_alt_motive_4, v4_help_alt_4, v4_neutral_alt_4, v5_help_alt_motive_4, v5_help_alt_4, v5_neutral_alt_4, v6_help_alt_motive_4, v6_help_alt_4, v6_neutral_alt_4, v7_help_alt_motive_4, v7_help_alt_4, v7_neutral_alt_4, v8_help_alt_motive_4, v8_help_alt_4, v8_neutral_alt_4)
+         ) %>% 
+  rename(participant_gender = gender, participant_race = race, participant_hispanic = hispanic) %>% 
+  mutate(
+    across(
+      c(person:others), 
+      ~ str_remove_all(.x, "[ (Extremely altruistic)| (Extremely selfish)]") 
+      ) ) %>% 
+  mutate(
+    across(c(person:others), as.numeric)
+  ) %>% 
+      select(ResponseId, participant_gender, participant_hispanic, participant_race, actor_female, actor_black, person:others, neutral:vignette, Q_RecaptchaScore, mullerlyer, open_end_flag, unusual, about, reason_race, reason_gender, reason_ambiguous
+  )
+```
+
+## Dropping participants
+
+We said we'd drop participants for the following reasons:\
+a) the second (and more) of duplicate responses made by the same Prolific ID. I confirmed there were none in the raw data; Prolific IDs are not shared so that is not included here) *0 participants omitted* b) those whose ReCaptcha score is less than 0.50, c) those who do not pass Prolific authenticity checks against LLMs and bots by scoring as "low" in either category (this is shown in Prolific - *1 participant omitted as "low" in the LLM check, 0 omitted as "low" in the bot check - this is why we started with 1799* d) those who fail a bot check question at the beginning of the study.
+
+For b) recaptcha:
+
+```{r}
+credit_2 %>% 
+  summarise(
+    recaptcha_fail = sum(Q_RecaptchaScore < .5, na.rm = TRUE)
+  )
+```
+
+Let's drop them:
+
+```{r}
+credit_2 <- credit_2 %>% 
+  filter(
+    Q_RecaptchaScore >= .5)   
+```
+
+For d) bot check question:
+
+```{r}
+credit_2 %>% 
+  count(mullerlyer, sort = TRUE)
+```
+
+Let's drop them:
+
+```{r}
+credit_2 <- credit_2 %>% 
+  filter(
+    str_detect(mullerlyer, "blue line")   
+  )
+```
+
+Finally, folks that indicated suspicion in the open-ends:
+
+```{r}
+
+credit_2 %>% 
+  tally(open_end_flag)
+
+credit_2 %>%
+  summarise(
+    race_n = sum(reason_race, na.rm = TRUE),
+    gender_n = sum(reason_gender, na.rm = TRUE),
+    ambiguous_n = sum(reason_ambiguous, na.rm = TRUE)
+  )
+
+credit_2 %>%
+  filter(reason_race == 1) %>%
+  pull(unusual, about) #seeing what they wrote for representtiave quotes
+
+credit_2 %>%
+  filter(reason_gender == 1) %>%
+  pull(unusual, about) #ditto
+
+credit_2 %>%
+  filter(reason_ambiguous == 1) %>%
+  pull(unusual, about) # ditto
+```
+
+Let's see what condition they were in. There were no differences by help conditions, but clearly, we had to drop more suspicious people who were randomly assigned to read about a Black actor than a White one.
+
+```{r}
+credit_2 %>%
+  filter(open_end_flag == 1) %>%
+  group_by(neutral, help_no_motive, help_motive) %>%
+  tally()
+
+credit_2 %>%
+  filter(open_end_flag == 1) %>%
+  group_by(actor_female, actor_black) %>%
+  tally()
+```
+
+Let's remove them:
+
+```{r}
+credit_2 <- credit_2 %>% 
+  filter(
+    is.na(open_end_flag))  
+```
+
+The new sample size:
+
+```{r}
+credit_2 %>%
+    # group_by(actor_black) %>%  # here getting the N per condition for actor_black, since we dropped more folks in one condition than the other as a result of suspicion
+  tally()
+```
+
+Check to make sure that dropping folks who were suspicious didnt signifiantly alter our cell sizes for 'actor_black'
+
+```{r}
+tab <- credit_2 %>%
+     count(actor_black) %>%
+    pull(n)
+ 
+chisq.test(tab)
+```
+
+## Demographics
+
+Gender of our participants:
+
+```{r}
+credit_2 %>% 
+  group_by(participant_gender) %>% 
+  tally() %>% 
+  mutate(pct = n/sum(n)*100)
+```
+
+Race of our participants:
+
+```{r}
+credit_2 %>% 
+  group_by(participant_race) %>% 
+  tally() %>% 
+  mutate(pct = (n/sum(n)*100))
+```
+
+Hispanic/Latino participants:
+
+```{r}
+credit_2 %>% 
+  group_by(participant_hispanic) %>% 
+  tally() %>% 
+  mutate(pct = (n/sum(n)*100))
+```
+
+## Get cronbach alpha, create DV
+
+Cronbach alpha on the four items Ps answered. We compare the alpha for the three-item (just the three items from CZ) and four-item (the fourth we added) scales. Both look good and very similar so we'll retain the four-item scale.
+
+```{r}
+items4 <- c("person", "charmotive", "action", "others") # these are the four items we asked
+items3 <- c("person", "charmotive", "action") # these are the three items from the original CZ piece, with "others" being the one we added. According to the pre-reg, we'll use this if the four items are not acceptably reliable while the 3 are. 
+
+alpha_4 <- psych::alpha(credit_2[, items4])$total$raw_alpha
+alpha_3 <- psych::alpha(credit_2[, items3])$total$raw_alpha
+
+alpha_4
+alpha_3
+```
+
+Because the items are very reliable, I'm averaging them into a new DV called `mean_alt`. Before I do that I also rescale the items so the midpoint of the scale is 0 (-5 to 5) rather than 5 (1-9). Creating another condition variable here too.
+
+```{r}
+credit_2 <- credit_2 %>% 
+  mutate(
+    person_rec = person - 5,  #recode these from 1-9 scale to -4 to 4 scale
+    charmotive_rec = charmotive - 5,
+    action_rec = action - 5,
+    others_rec = others - 5,
+    mean_alt = (person_rec + charmotive_rec + action_rec + others_rec)/4, #average them
+    mean_alt_3 = (person_rec + charmotive_rec + action_rec)/3, # this version matches CZ exactly, that is, dropping the fourth item we added. we'll use this to confirm that results are similar either way
+    participant_black = ifelse(str_detect(participant_race, "Black"), 1, 0), # this will match with "actor_black" as a potential control term for participant race/ethncity. however, another option is below...
+    participant_black_only = ifelse(participant_race == "Black/African American", 1, 0), # this version only selects participants who indicated Black AND NO OTHER RACE as a stricter form. for example, about 20 people selected both Black and White. So we could use this as a robustness check. 
+    participant_female = ifelse(participant_gender == "Woman", 1, 0), #likewise for gender
+    condition = ifelse(help_no_motive==1, "2_Help with no motive info", 
+                       ifelse(help_motive==1, "3_Help with self motives",
+                              "1_Neutral")),
+condition2 = ifelse(help_motive == 1 & motive == "M", # in case we want to split out by motives
+                    "Help with material motives",
+             ifelse(help_motive == 1 & motive == "S",
+                    "Help with social motives", condition))
+  ) 
+```
+
+## Analyses
+
+```{r}
+library(afex)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+```
+
+Mean ratings per help condition:
+
+```{r}
+credit_2 %>% 
+  group_by(condition) %>% 
+  summarise(
+    mean = mean(mean_alt, na.rm = TRUE),
+    sd = sd(mean_alt, na.rm = TRUE),
+      n = n_distinct(ResponseId)
+  )
+```
+
+ANOVA:
+
+```{r}
+anova_model <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_2,
+  between = c("condition", "actor_female", "actor_black", "vignette"), 
+  type = 3
+)
+
+nice(anova_model, es = "pes") # using partial eta squared since we have many interactions. 
+```
+
+Here are the simple effects:
+
+```{r}
+emmeans(anova_model, ~ actor_female * actor_black * condition)
+```
+
+And comparisons to see what's happening with the interactions:
+
+```{r}
+pairs(emmeans(anova_model, ~ actor_female * actor_black | condition))
+```
+
+Let's look at means per condition:
+
+```{r}
+credit_2 %>%
+  group_by(condition, actor_female, actor_black) %>%
+  summarise(
+    mean = mean(mean_alt, na.rm = TRUE),
+    # max = max(mean_alt), #v1 had a longer scale than the other, and can range from -5 to 5
+    # min = min(mean_alt),
+    sd = sd(mean_alt, na.rm = TRUE),
+    n = n()
+  )
+```
+
+```{r}
+
+new_labels <- c("1_Neutral" = "No help — neutral act"
+                , "2_Help with no motive info" = "Help — no motive"
+                # , "Help with material motives" = "Help — material motive", 
+                , "3_Help with self motives" = "Help — self-interest motive"
+                # "Help with social motives" = "Help — social motive"
+                )
+
+make_panel_df <- function(dat, panel_label) {
+  
+  mod <- aov_ez(
+    id = "ResponseId",
+    dv = "mean_alt",
+    data = dat,
+    between = c("condition", "actor_female", "actor_black"),
+    type = 3
+  )
+
+  emms_all <- emmeans(mod, ~ actor_female * actor_black * condition)
+  
+  emm_df <- as.data.frame(emms_all) %>%
+    mutate(
+      actor_female = ifelse(actor_female == "1", "Female", "Male"),
+      actor_black  = ifelse(actor_black  == "1", "Black", "White"),
+      actor_label  = paste(actor_black, actor_female),
+      actor_label  = factor(
+        actor_label,
+        levels = c("White Male", "White Female", "Black Male", "Black Female")
+      ),
+      condition = as.factor(condition),
+      panel = panel_label
+    )
+  
+  ref_df <- emm_df %>%
+    filter(actor_label == "White Male") %>%
+    select(condition, ref_mean = emmean, ref_se = SE)
+  
+  diffs <- emm_df %>%
+    left_join(ref_df, by = "condition") %>%
+    mutate(
+      diff = emmean - ref_mean,
+      se_diff = sqrt(SE^2 + ref_se^2),
+      lower_diff = diff - 1.96 * se_diff,
+      upper_diff = diff + 1.96 * se_diff
+    ) %>%
+    filter(actor_label != "White Male")
+  
+}
+
+# make each panel
+diffs_all <- make_panel_df(
+  credit_2,
+  "All participants"
+)
+
+diffs_white <- make_panel_df(
+  credit_2 %>% filter(participant_race == "White/Caucasian"),
+  "White participants only"
+)
+
+diffs_men <- make_panel_df(
+  credit_2 %>% filter(participant_gender == "Man"),
+  "Men only"
+)
+
+diffs_women <- make_panel_df(
+  credit_2 %>% filter(participant_gender == "Woman"),
+  "Women only"
+)
+
+# combine
+diffs_plot <- bind_rows(
+  diffs_all,
+  diffs_white,
+  diffs_men,
+  diffs_women
+)
+
+diffs_plot$panel <- factor(
+  diffs_plot$panel,
+  levels = c("All participants", "White participants only", "Men only", "Women only"),
+  labels = c("(a) Full sample", "(b) White participants only", "(c) Men only", "(d) Women only")
+)
+
+diffs_plot$condition <- factor(
+  diffs_plot$condition,
+  levels = c(
+    "3_Help with self motives",
+    "1_Neutral",
+    "2_Help with no motive info"
+  )
+)
+fig_study2 <- ggplot(
+  diffs_plot,
+  aes(x = diff, y = condition, color = actor_label)
+) +
+  geom_errorbarh(
+    aes(xmin = lower_diff, xmax = upper_diff),
+    height = 0.18,
+    linewidth = 0.9,
+    position = position_dodge(width = 0.6)
+  ) +
+  geom_point(
+    size = 3,
+    position = position_dodge(width = 0.6)
+  ) +
+  geom_vline(xintercept = 0, linewidth = 0.3, linetype = "dashed") +
+  facet_wrap(~ panel, ncol = 2) +
+  scale_x_continuous(limits = c(-1.1, 1.1), breaks = c(-1,  0, 1)) +
+  scale_y_discrete(labels = new_labels) +
+  ggthemes::theme_clean(base_size = 14) +
+  theme(
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(size = 16),
+    axis.text.x  = element_text(size = 14),
+    axis.text.y  = element_text(size = 16),
+    legend.title = element_text(size = 13),
+    legend.position = "right",
+    plot.background = element_rect(color = NA, fill = NA),
+    panel.border = element_blank()
+  ) +
+  labs(
+    x = "Perceived altruism (difference from White men)",
+    title = "",
+    color = "Vignette actor's \nrace and gender"
+  ) + 
+  theme(
+  strip.background = element_blank(),   # removes grey box
+  strip.text = element_text(color = "black", size = 14)  # keeps text clean
+)
+
+print(fig_study2)
+ggsave("fig3.pdf", fig_study2, width = 10, height = 7, bg = "white")
+ggsave("fig3.png", fig_study2, width = 10, height = 7, bg = "white")
+
+```
+
+## Supplementary analyses
+
+Linear model:
+
+```{r}
+lm_1 <- lm(mean_alt ~ actor_female*actor_black*condition
+           + as.factor(vignette)
+           + participant_white + participant_female
+           , data=credit_2
+)
+summary(lm_1)
+```
+
+Drop vignette 1
+
+The scale range for vignette 1, for some reason, is 0 to 10 while the others are 1 to 9. This was the case for all conditions (help with motives, help with no motives, and no help), BUT we might still want to make sure the results hold with vignette 1 dropped.
+
+```{r}
+credit_2_drop_v1 <- 
+  credit_2 %>% 
+  filter(vignette != 1)
+```
+
+```{r}
+credit_2_drop_v1 %>%
+  group_by(condition, actor_female, actor_black) %>%
+  summarise(
+    mean = mean(mean_alt, na.rm = TRUE),
+    max = max(mean_alt), # here just confirming the -5 to 5 was dropped
+    min = min(mean_alt), # ditto
+    sd = sd(mean_alt, na.rm = TRUE),
+    n = n()
+  )
+```
+
+ANOVA:
+
+```{r}
+anova_model <- aov_ez(
+  id = "ResponseId",
+  dv = "mean_alt",
+  data = credit_2_drop_v1,
+  between = c("condition", "actor_female", "actor_black"), 
+  type = 3
+)
+
+nice(anova_model, es = "pes") 
+```
+
+```{r}
+pairs(emmeans(anova_model, ~ actor_female * actor_black | condition))
+```
