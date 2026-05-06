@@ -245,7 +245,7 @@ anova_model <- aov_ez(
   id = "ResponseId",
   dv = "mean_alt",
   data = credit_2,
-  between = c("condition", "actor_female", "actor_black", "vignette"), 
+  between = c("condition", "actor_female", "actor_black"), 
   type = 3
 )
 
@@ -418,16 +418,16 @@ ggsave("fig3.png", fig_study2, width = 10, height = 7, bg = "white")
 
 ## Supplementary analyses
 
-Linear model:
+Linear model, to compare to Study 1
 
-```{r}
-lm_1 <- lm(mean_alt ~ actor_female*actor_black*condition
-           + as.factor(vignette)
-           + participant_white + participant_female
-           , data=credit_2
-)
-summary(lm_1)
-```
+<!-- ```{r} -->
+<!-- lm_1 <- lm(mean_alt ~ actor_female*actor_black*condition -->
+<!--            + as.factor(vignette) -->
+<!--            + participant_white + participant_female -->
+<!--            , data=credit_2 -->
+<!-- ) -->
+<!-- summary(lm_1) -->
+<!-- ``` -->
 
 Drop vignette 1
 
